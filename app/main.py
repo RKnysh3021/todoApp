@@ -24,7 +24,7 @@ def index() -> FileResponse:
     return FileResponse("app/static/index.html")
 
 
-@app.get("/health")
+@app.get("/health", status_code = 204)
 def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
 
