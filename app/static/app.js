@@ -1,18 +1,32 @@
 const taskForm = document.querySelector("#task-form");
 const titleInput = document.querySelector("#title");
 const descriptionInput = document.querySelector("#description");
+const priorityInput = document.querySelector("#priority");
+const dueDateInput = document.querySelector("#due-date");
 const formMessage = document.querySelector("#form-message");
 const listMessage = document.querySelector("#list-message");
 const taskList = document.querySelector("#task-list");
-const filterSelect = document.querySelector("#status-filter");
+const statusFilter = document.querySelector("#status-filter");
+const priorityFilter = document.querySelector("#priority-filter");
+const searchInput = document.querySelector("#search-input");
+const sortBySelect = document.querySelector("#sort-by");
+const sortOrderSelect = document.querySelector("#sort-order");
 const refreshButton = document.querySelector("#refresh-button");
+const clearCompletedButton = document.querySelector("#clear-completed-button");
 const template = document.querySelector("#task-card-template");
 
 const totalCount = document.querySelector("#total-count");
 const activeCount = document.querySelector("#active-count");
 const completedCount = document.querySelector("#completed-count");
 
+const priorityLabels = {
+  low: "Низкий",
+  medium: "Средний",
+  high: "Высокий",
+};
+
 let tasks = [];
+let searchTimeoutId = null;
 
 function setMessage(target, text, type = "") {
   target.textContent = text;
@@ -32,6 +46,18 @@ function formatDate(value) {
   });
 }
 
+function formatDueDate(value) {
+  if (!value) {
+    return "Без дедлайна";
+  }
+
+  return new Date(`${value}T00:00:00`).toLocaleDateString("ru-RU", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function updateStats() {
   const completed = tasks.filter((task) => task.is_completed).length;
   totalCount.textContent = String(tasks.length);
@@ -39,18 +65,28 @@ function updateStats() {
   activeCount.textContent = String(tasks.length - completed);
 }
 
-function filteredTasks() {
-  const filter = filterSelect.value;
+function getQueryString() {
+  const params = new URLSearchParams();
 
-  if (filter === "active") {
-    return tasks.filter((task) => !task.is_completed);
+  if (statusFilter.value === "active") {
+    params.set("is_completed", "false");
+  } else if (statusFilter.value === "completed") {
+    params.set("is_completed", "true");
   }
 
-  if (filter === "completed") {
-    return tasks.filter((task) => task.is_completed);
+  if (priorityFilter.value !== "all") {
+    params.set("priority", priorityFilter.value);
   }
 
-  return tasks;
+  const search = searchInput.value.trim();
+  if (search) {
+    params.set("search", search);
+  }
+
+  params.set("sort_by", sortBySelect.value);
+  params.set("order", sortOrderSelect.value);
+
+  return params.toString();
 }
 
 async function request(url, options = {}) {
@@ -83,36 +119,48 @@ async function request(url, options = {}) {
 function createEmptyState() {
   const empty = document.createElement("div");
   empty.className = "empty-state";
-  empty.textContent = "Задач пока нет. Добавьте первую задачу через форму слева.";
+  empty.textContent = "Под текущие фильтры задачи не найдены. Попробуйте изменить поиск или добавить новую задачу.";
   return empty;
 }
 
 function renderTasks() {
   taskList.innerHTML = "";
-  const visibleTasks = filteredTasks();
 
-  if (visibleTasks.length === 0) {
+  if (tasks.length === 0) {
     taskList.appendChild(createEmptyState());
     return;
   }
 
-  visibleTasks.forEach((task) => {
+  tasks.forEach((task) => {
     const fragment = template.content.cloneNode(true);
     const card = fragment.querySelector(".task-card");
     const checkbox = fragment.querySelector(".task-completed");
+    const priorityBadge = fragment.querySelector(".task-priority-badge");
     const dateNode = fragment.querySelector(".task-date");
+    const createdDateNode = fragment.querySelector(".created-date");
+    const dueDateNode = fragment.querySelector(".due-date");
     const form = fragment.querySelector(".task-edit-form");
     const titleField = fragment.querySelector(".task-title-input");
     const descriptionField = fragment.querySelector(".task-description-input");
+    const priorityField = fragment.querySelector(".task-priority-input");
+    const dueDateField = fragment.querySelector(".task-due-date-input");
     const deleteButton = fragment.querySelector(".delete-button");
     const saveButton = fragment.querySelector(".save-button");
 
     card.dataset.taskId = String(task.id);
     card.classList.toggle("completed", task.is_completed);
+    card.dataset.priority = task.priority;
+
     checkbox.checked = task.is_completed;
-    dateNode.textContent = `Создано: ${formatDate(task.created_at)}`;
+    priorityBadge.textContent = priorityLabels[task.priority] || task.priority;
+    priorityBadge.classList.add(`priority-${task.priority}`);
+    dateNode.textContent = task.due_date ? `Дедлайн: ${formatDueDate(task.due_date)}` : "Без срока";
+    createdDateNode.textContent = `Создано: ${formatDate(task.created_at)}`;
+    dueDateNode.textContent = task.due_date ? `Нужно до: ${formatDueDate(task.due_date)}` : "Дедлайн не задан";
     titleField.value = task.title;
     descriptionField.value = task.description || "";
+    priorityField.value = task.priority;
+    dueDateField.value = task.due_date || "";
 
     checkbox.addEventListener("change", async () => {
       checkbox.disabled = true;
@@ -132,6 +180,8 @@ function renderTasks() {
           {
             title: titleField.value.trim(),
             description: descriptionField.value.trim() || null,
+            priority: priorityField.value,
+            due_date: dueDateField.value || null,
             is_completed: checkbox.checked,
           },
           "Задача сохранена"
@@ -150,10 +200,7 @@ function renderTasks() {
       deleteButton.disabled = true;
       try {
         await request(`/tasks/${task.id}`, { method: "DELETE" });
-        tasks = tasks.filter((item) => item.id !== task.id);
-        updateStats();
-        renderTasks();
-        setMessage(listMessage, "Задача удалена", "success");
+        await loadTasks("Задача удалена");
       } catch (error) {
         setMessage(listMessage, error.message, "error");
       } finally {
@@ -165,13 +212,15 @@ function renderTasks() {
   });
 }
 
-async function loadTasks() {
+async function loadTasks(successMessage = "") {
   setMessage(listMessage, "Загружаем задачи...");
   try {
-    tasks = await request("/tasks/");
+    const query = getQueryString();
+    const url = query ? `/tasks/?${query}` : "/tasks/";
+    tasks = await request(url);
     updateStats();
     renderTasks();
-    setMessage(listMessage, `Загружено задач: ${tasks.length}`, "success");
+    setMessage(listMessage, successMessage || `Загружено задач: ${tasks.length}`, "success");
   } catch (error) {
     setMessage(listMessage, error.message, "error");
   }
@@ -179,15 +228,12 @@ async function loadTasks() {
 
 async function updateTask(id, payload, successMessage) {
   try {
-    const updatedTask = await request(`/tasks/${id}`, {
+    await request(`/tasks/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
     });
 
-    tasks = tasks.map((task) => (task.id === id ? updatedTask : task));
-    updateStats();
-    renderTasks();
-    setMessage(listMessage, successMessage, "success");
+    await loadTasks(successMessage);
   } catch (error) {
     setMessage(listMessage, error.message, "error");
   }
@@ -208,20 +254,20 @@ taskForm.addEventListener("submit", async (event) => {
   submitButton.disabled = true;
 
   try {
-    const newTask = await request("/tasks/", {
+    await request("/tasks/", {
       method: "POST",
       body: JSON.stringify({
         title,
         description: description || null,
+        priority: priorityInput.value,
+        due_date: dueDateInput.value || null,
       }),
     });
 
-    tasks = [newTask, ...tasks].sort((left, right) => left.id - right.id);
     taskForm.reset();
-    updateStats();
-    renderTasks();
+    priorityInput.value = "medium";
+    await loadTasks("Задача успешно добавлена");
     setMessage(formMessage, "Задача успешно добавлена", "success");
-    setMessage(listMessage, "Список обновлен", "success");
     titleInput.focus();
   } catch (error) {
     setMessage(formMessage, error.message, "error");
@@ -230,7 +276,36 @@ taskForm.addEventListener("submit", async (event) => {
   }
 });
 
-filterSelect.addEventListener("change", renderTasks);
-refreshButton.addEventListener("click", loadTasks);
+function handleFiltersChange() {
+  void loadTasks();
+}
 
-loadTasks();
+statusFilter.addEventListener("change", handleFiltersChange);
+priorityFilter.addEventListener("change", handleFiltersChange);
+sortBySelect.addEventListener("change", handleFiltersChange);
+sortOrderSelect.addEventListener("change", handleFiltersChange);
+
+searchInput.addEventListener("input", () => {
+  window.clearTimeout(searchTimeoutId);
+  searchTimeoutId = window.setTimeout(() => {
+    void loadTasks();
+  }, 250);
+});
+
+refreshButton.addEventListener("click", () => {
+  void loadTasks("Список обновлен");
+});
+
+clearCompletedButton.addEventListener("click", async () => {
+  clearCompletedButton.disabled = true;
+  try {
+    const result = await request("/tasks/completed", { method: "DELETE" });
+    await loadTasks(`Удалено выполненных задач: ${result.deleted}`);
+  } catch (error) {
+    setMessage(listMessage, error.message, "error");
+  } finally {
+    clearCompletedButton.disabled = false;
+  }
+});
+
+void loadTasks();

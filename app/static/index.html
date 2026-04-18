@@ -13,7 +13,7 @@
           <p class="eyebrow">TODO Dashboard</p>
           <h1>Управляйте задачами в одном окне</h1>
           <p class="hero-text">
-            Добавляйте задачи, отмечайте выполненные, редактируйте описание и держите весь список под рукой.
+            Добавляйте задачи, отмечайте выполненные, сортируйте список, ставьте приоритет и не теряйте дедлайны.
           </p>
         </div>
         <div class="hero-stats">
@@ -36,7 +36,7 @@
         <section class="panel form-panel">
           <div class="panel-heading">
             <h2>Новая задача</h2>
-            <p>Заполните форму и задача сразу появится в списке.</p>
+            <p>Добавьте название, приоритет и дедлайн, если задаче нужен срок.</p>
           </div>
           <form id="task-form" class="task-form">
             <label class="field">
@@ -52,6 +52,20 @@
                 placeholder="Дополнительные детали по задаче"
               ></textarea>
             </label>
+            <div class="field-grid">
+              <label class="field">
+                <span>Приоритет</span>
+                <select id="priority" name="priority">
+                  <option value="low">Низкий</option>
+                  <option value="medium" selected>Средний</option>
+                  <option value="high">Высокий</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Дедлайн</span>
+                <input id="due-date" name="due_date" type="date" />
+              </label>
+            </div>
             <button class="primary-button" type="submit">Добавить задачу</button>
           </form>
           <p id="form-message" class="form-message" aria-live="polite"></p>
@@ -61,19 +75,52 @@
           <div class="panel-heading list-heading">
             <div>
               <h2>Список задач</h2>
-              <p>Нажмите на задачу, чтобы изменить ее содержимое.</p>
+              <p>Фильтруйте, ищите и быстро очищайте выполненные задачи.</p>
             </div>
             <div class="toolbar">
-              <label class="filter">
-                <span>Фильтр</span>
-                <select id="status-filter">
-                  <option value="all">Все</option>
-                  <option value="active">Только активные</option>
-                  <option value="completed">Только выполненные</option>
-                </select>
-              </label>
               <button id="refresh-button" class="secondary-button" type="button">Обновить</button>
+              <button id="clear-completed-button" class="ghost-button" type="button">Очистить выполненные</button>
             </div>
+          </div>
+
+          <div class="filters-grid">
+            <label class="field search-field">
+              <span>Поиск</span>
+              <input id="search-input" type="search" placeholder="Найти по названию или описанию" />
+            </label>
+            <label class="field">
+              <span>Статус</span>
+              <select id="status-filter">
+                <option value="all">Все</option>
+                <option value="active">Только активные</option>
+                <option value="completed">Только выполненные</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Приоритет</span>
+              <select id="priority-filter">
+                <option value="all">Любой</option>
+                <option value="high">Высокий</option>
+                <option value="medium">Средний</option>
+                <option value="low">Низкий</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Сортировка</span>
+              <select id="sort-by">
+                <option value="created_at">По дате создания</option>
+                <option value="due_date">По дедлайну</option>
+                <option value="priority">По приоритету</option>
+                <option value="title">По названию</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Порядок</span>
+              <select id="sort-order">
+                <option value="desc">По убыванию</option>
+                <option value="asc">По возрастанию</option>
+              </select>
+            </label>
           </div>
 
           <div id="list-message" class="list-message" aria-live="polite"></div>
@@ -89,7 +136,15 @@
             <input class="task-completed" type="checkbox" />
             <span>Выполнено</span>
           </label>
-          <time class="task-date"></time>
+          <div class="task-meta">
+            <span class="task-priority-badge"></span>
+            <time class="task-date"></time>
+          </div>
+        </div>
+
+        <div class="task-timeline">
+          <span class="created-date"></span>
+          <span class="due-date"></span>
         </div>
 
         <form class="task-edit-form">
@@ -101,6 +156,20 @@
             <span>Описание</span>
             <textarea class="task-description-input" name="description" rows="3"></textarea>
           </label>
+          <div class="field-grid">
+            <label class="field">
+              <span>Приоритет</span>
+              <select class="task-priority-input" name="priority">
+                <option value="low">Низкий</option>
+                <option value="medium">Средний</option>
+                <option value="high">Высокий</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Дедлайн</span>
+              <input class="task-due-date-input" name="due_date" type="date" />
+            </label>
+          </div>
 
           <div class="task-actions">
             <button class="secondary-button save-button" type="submit">Сохранить</button>
