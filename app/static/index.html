@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TODO App</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">TODO Dashboard</p>
+          <h1>Управляйте задачами в одном окне</h1>
+          <p class="hero-text">
+            Добавляйте задачи, отмечайте выполненные, редактируйте описание и держите весь список под рукой.
+          </p>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-card">
+            <span class="stat-label">Всего</span>
+            <strong id="total-count">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Активных</span>
+            <strong id="active-count">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Готово</span>
+            <strong id="completed-count">0</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel form-panel">
+          <div class="panel-heading">
+            <h2>Новая задача</h2>
+            <p>Заполните форму и задача сразу появится в списке.</p>
+          </div>
+          <form id="task-form" class="task-form">
+            <label class="field">
+              <span>Название</span>
+              <input id="title" name="title" type="text" maxlength="100" placeholder="Например, купить продукты" required />
+            </label>
+            <label class="field">
+              <span>Описание</span>
+              <textarea
+                id="description"
+                name="description"
+                rows="5"
+                placeholder="Дополнительные детали по задаче"
+              ></textarea>
+            </label>
+            <button class="primary-button" type="submit">Добавить задачу</button>
+          </form>
+          <p id="form-message" class="form-message" aria-live="polite"></p>
+        </section>
+
+        <section class="panel list-panel">
+          <div class="panel-heading list-heading">
+            <div>
+              <h2>Список задач</h2>
+              <p>Нажмите на задачу, чтобы изменить ее содержимое.</p>
+            </div>
+            <div class="toolbar">
+              <label class="filter">
+                <span>Фильтр</span>
+                <select id="status-filter">
+                  <option value="all">Все</option>
+                  <option value="active">Только активные</option>
+                  <option value="completed">Только выполненные</option>
+                </select>
+              </label>
+              <button id="refresh-button" class="secondary-button" type="button">Обновить</button>
+            </div>
+          </div>
+
+          <div id="list-message" class="list-message" aria-live="polite"></div>
+          <div id="task-list" class="task-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="task-card-template">
+      <article class="task-card">
+        <div class="task-card-top">
+          <label class="checkbox-row">
+            <input class="task-completed" type="checkbox" />
+            <span>Выполнено</span>
+          </label>
+          <time class="task-date"></time>
+        </div>
+
+        <form class="task-edit-form">
+          <label class="field">
+            <span>Название</span>
+            <input class="task-title-input" name="title" type="text" maxlength="100" required />
+          </label>
+          <label class="field">
+            <span>Описание</span>
+            <textarea class="task-description-input" name="description" rows="3"></textarea>
+          </label>
+
+          <div class="task-actions">
+            <button class="secondary-button save-button" type="submit">Сохранить</button>
+            <button class="ghost-button delete-button" type="button">Удалить</button>
+          </div>
+        </form>
+      </article>
+    </template>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
